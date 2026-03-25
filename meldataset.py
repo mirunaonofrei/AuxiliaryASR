@@ -158,6 +158,6 @@ def build_dataloader(path_list,
                              num_workers=num_workers,
                              drop_last=(not validation),
                              collate_fn=collate_fn,
-                             pin_memory=(device != 'cpu'))
+                             pin_memory=(str(device) != 'cpu'))
 
     return data_loader

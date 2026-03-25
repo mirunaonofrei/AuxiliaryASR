@@ -23,7 +23,8 @@ handler = StreamHandler()
 handler.setLevel(logging.DEBUG)
 logger.addHandler(handler)
 
-torch.backends.cudnn.benchmark = True
+if torch.cuda.is_available() and torch.backends.cudnn.is_available():
+    torch.backends.cudnn.benchmark = True
 
 @click.command()
 @click.option('-p', '--config_path', default='./Configs/config.yml', type=str)
@@ -42,7 +43,8 @@ def main(config_path):
     logger.addHandler(file_handler)
 
     batch_size = config.get('batch_size', 10)
-    device = config.get('device', 'cpu')
+    device = get_device(config.get('device', None), logger=logger)
+    logger.info(f"Using device: {device}")
     epochs = config.get('epochs', 1000)
     save_freq = config.get('save_freq', 20)
     train_path = config.get('train_data', None)
