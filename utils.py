@@ -13,6 +13,52 @@ import jiwer
 
 import matplotlib.pylab as plt
 
+
+def get_device(preferred=None, logger=None):
+    """Return the best available torch device.
+
+    Order: explicit preference -> DirectML -> CUDA -> CPU."""
+    if isinstance(preferred, torch.device):
+        return preferred
+
+    preferred_str = str(preferred).lower() if preferred is not None else None
+
+    directml_device = None
+    try:
+        import torch_directml  # type: ignore
+        directml_device = torch_directml.device()
+    except ImportError:
+        directml_device = None
+
+    if preferred_str in ("cpu", "cpu:0"):
+        return torch.device("cpu")
+
+    if preferred_str in ("dml", "directml", "privateuseone:0"):
+        if directml_device is not None:
+            return directml_device
+        if logger:
+            logger.warning("DirectML requested but torch-directml is not installed; falling back to CPU.")
+        return torch.device("cpu")
+
+    if preferred_str and preferred_str.startswith("cuda"):
+        if torch.cuda.is_available():
+            return torch.device(preferred_str)
+        if directml_device is not None:
+            if logger:
+                logger.warning("CUDA requested but unavailable; using DirectML instead.")
+            return directml_device
+        if logger:
+            logger.warning("CUDA requested but unavailable; using CPU instead.")
+        return torch.device("cpu")
+
+    if directml_device is not None:
+        return directml_device
+
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+
+    return torch.device("cpu")
+
 def calc_wer(target, pred, ignore_indexes=[0]):
     target_chars = drop_duplicated(list(filter(lambda x: x not in ignore_indexes, map(str, list(target)))))
     pred_chars = drop_duplicated(list(filter(lambda x: x not in ignore_indexes, map(str, list(pred)))))

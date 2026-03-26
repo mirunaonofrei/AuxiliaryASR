@@ -5,6 +5,38 @@ from torch.nn import TransformerEncoder
 import torch.nn.functional as F
 from layers import MFCC, Attention, LinearNorm, ConvNorm, ConvBlock
 
+
+class ManualLSTMCell(nn.Module):
+    """Implementação simples de LSTMCell sem operador fused (compatível com DirectML)."""
+
+    def __init__(self, input_size, hidden_size):
+        super().__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.weight_ih = nn.Parameter(torch.empty(4 * hidden_size, input_size))
+        self.weight_hh = nn.Parameter(torch.empty(4 * hidden_size, hidden_size))
+        self.bias_ih = nn.Parameter(torch.empty(4 * hidden_size))
+        self.bias_hh = nn.Parameter(torch.empty(4 * hidden_size))
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        stdv = 1.0 / math.sqrt(self.hidden_size)
+        for weight in self.parameters():
+            nn.init.uniform_(weight, -stdv, stdv)
+
+    def forward(self, input, hx):
+        h_prev, c_prev = hx
+        gates = (torch.matmul(input, self.weight_ih.t()) + self.bias_ih +
+                 torch.matmul(h_prev, self.weight_hh.t()) + self.bias_hh)
+        i, f, g, o = gates.chunk(4, 1)
+        i = torch.sigmoid(i)
+        f = torch.sigmoid(f)
+        g = torch.tanh(g)
+        o = torch.sigmoid(o)
+        c_next = f * c_prev + i * g
+        h_next = o * torch.tanh(c_next)
+        return h_next, c_next
+
 def build_model(model_params={}, model_type='asr'):
     model = ASRCNN(**model_params)
     return model
@@ -99,7 +131,7 @@ class ASRS2S(nn.Module):
             n_location_filters,
             location_kernel_size
         )
-        self.decoder_rnn = nn.LSTMCell(self.decoder_rnn_dim + embedding_dim, self.decoder_rnn_dim)
+        self.decoder_rnn = ManualLSTMCell(self.decoder_rnn_dim + embedding_dim, self.decoder_rnn_dim)
         self.project_to_hidden = nn.Sequential(
             LinearNorm(self.decoder_rnn_dim * 2, hidden_dim),
             nn.Tanh())

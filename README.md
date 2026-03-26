@@ -75,35 +75,51 @@ Werkzeug                3.1.7
 
 
 # AuxiliaryASR
-This repo contains the training code for Phoneme-level ASR for Voice Conversion (VC) and TTS (Text-Mel Alignment) used in [StarGANv2-VC](https://github.com/yl4579/StarGANv2-VC) and [StyleTTS](https://github.com/yl4579/StyleTTS). 
+Repositório com o código de treino de ASR em nível de fonema para Voice Conversion (VC) e TTS (alinhamento texto-mel) usado em [StarGANv2-VC](https://github.com/yl4579/StarGANv2-VC) e [StyleTTS](https://github.com/yl4579/StyleTTS).
 
-## Pre-requisites
+## Pré-requisitos
 1. Python >= 3.7
-2. Clone this repository:
+2. Clonar o repositório:
 ```bash
 git clone https://github.com/yl4579/AuxiliaryASR.git
 cd AuxiliaryASR
 ```
-3. Install python requirements: 
+3. Instalar dependências Python:
 ```bash
 pip install SoundFile torchaudio torch jiwer pyyaml click matplotlib g2p_en librosa
 ```
-4. Prepare your own dataset and put the `train_list.txt` and `val_list.txt` in the `Data` folder (see Training section for more details).
+4. Prepare seu dataset e coloque `train_list.txt` e `val_list.txt` na pasta `Data` (veja a seção de Treino para detalhes).
 
-## Training
+## Dispositivo (DirectML/CUDA/CPU)
+- A seleção de dispositivo é automática via [Configs/config.yml](Configs/config.yml) (`device: auto`). A ordem de preferência é DirectML (AMD), depois CUDA e por fim CPU.
+- Para GPUs AMD, instale `torch-directml` compatível com sua versão do Torch (ex.: `pip install torch-directml` usando torch 2.4.1). CUDA não é necessária com DirectML.
+- Você pode forçar o dispositivo em [Configs/config.yml](Configs/config.yml): `device: directml` (DirectML), `device: cpu` (CPU) ou `device: cuda` (pede CUDA, mas cai para DirectML/CPU se não houver).
+- Checagem rápida:
+```bash
+python - <<"PY"
+import torch
+from utils import get_device
+device = get_device()
+print(device)
+print(torch.ones(2, device=device))
+PY
+```
+Com DirectML ativo, o dispositivo mostrado será `privateuseone:0`.
+
+## Treino
 ```bash
 python train.py --config_path ./Configs/config.yml
 ```
-Please specify the training and validation data in `config.yml` file. The data list format needs to be `filename.wav|label|speaker_number`, see [train_list.txt](https://github.com/yl4579/AuxiliaryASR/blob/main/Data/train_list.txt) as an example (a subset for LJSpeech). Note that `speaker_number` can just be `0` for ASR, but it is useful to set a meaningful number for TTS training (if you need to use this repo for StyleTTS). 
+No `config.yml`, indique os caminhos de treino/validação. O formato das listas é `filename.wav|label|speaker_number`. Veja [train_list.txt](https://github.com/yl4579/AuxiliaryASR/blob/main/Data/train_list.txt) como exemplo (subset do LJSpeech). Para ASR puro, `speaker_number` pode ser `0`; para TTS, atribuir IDs de falante pode ser útil.
 
-Checkpoints and Tensorboard logs will be saved at `log_dir`. To speed up training, you may want to make `batch_size` as large as your GPU RAM can take. However, please note that `batch_size = 64` will take around 10G GPU RAM. 
+Checkpoints e logs do TensorBoard vão para `log_dir`. Para acelerar o treino, aumente `batch_size` até onde couber na GPU. `batch_size = 64` consome cerca de 10 GB de VRAM.
 
-### Languages
-This repo is set up for English with the [g2p_en](https://github.com/Kyubyong/g2p) package, but you can train it with other languages. If you would like to train for datasets in different languages, you will need to modify the [meldataset.py](https://github.com/yl4579/AuxiliaryASR/blob/main/meldataset.py#L86-L93) file (L86-93) with your own phonemizer. You also need to change the vocabulary file ([word_index_dict.txt](https://github.com/yl4579/AuxiliaryASR/blob/main/word_index_dict.txt)) and change `n_token` in `config.yml` to reflect the number of tokens. A recommended phonemizer for other languages is [phonemizer](https://github.com/bootphon/phonemizer).
+### Idiomas
+O repositório vem configurado para inglês com [g2p_en](https://github.com/Kyubyong/g2p), mas pode ser treinado em outros idiomas. Para isso, adapte [meldataset.py](https://github.com/yl4579/AuxiliaryASR/blob/main/meldataset.py#L86-L93) com seu fonemizador, ajuste o vocabulário em [word_index_dict.txt](https://github.com/yl4579/AuxiliaryASR/blob/main/word_index_dict.txt) e atualize `n_token` em `config.yml` para refletir o novo total de tokens. Uma opção é o [phonemizer](https://github.com/bootphon/phonemizer).
 
-## References
+## Referências
 - [NVIDIA/tacotron2](https://github.com/NVIDIA/tacotron2)
 - [kan-bayashi/ParallelWaveGAN](https://github.com/kan-bayashi/ParallelWaveGAN)
 
-## Acknowledgement
-The author would like to thank [@tosaka-m](https://github.com/tosaka-m) for his great repository and valuable discussions.
+## Agradecimentos
+Agradecimentos ao [@tosaka-m](https://github.com/tosaka-m) pelo repositório de referência e discussões valiosas.

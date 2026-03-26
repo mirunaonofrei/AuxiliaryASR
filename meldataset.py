@@ -13,6 +13,7 @@ from torch import nn
 import torch.nn.functional as F
 import torchaudio
 from torch.utils.data import DataLoader
+import nltk
 
 from g2p_en import G2p
 
@@ -35,6 +36,18 @@ MEL_PARAMS = {
     "hop_length": 300
 }
 
+
+def _ensure_nltk_tagger(logger=None):
+    """Garantir que o tagger do NLTK necessário para g2p_en esteja disponível."""
+    resource = 'averaged_perceptron_tagger_eng'
+    try:
+        nltk.data.find(f'taggers/{resource}/')
+        return
+    except LookupError:
+        if logger:
+            logger.info(f"Baixando recurso NLTK: {resource}")
+        nltk.download(resource, quiet=True)
+
 class MelDataset(torch.utils.data.Dataset):
     def __init__(self,
                  data_list,
@@ -52,7 +65,8 @@ class MelDataset(torch.utils.data.Dataset):
 
         self.to_melspec = torchaudio.transforms.MelSpectrogram(**MEL_PARAMS)
         self.mean, self.std = -4, 4
-        
+
+        _ensure_nltk_tagger(logger)
         self.g2p = G2p()
 
     def __len__(self):
@@ -158,6 +172,6 @@ def build_dataloader(path_list,
                              num_workers=num_workers,
                              drop_last=(not validation),
                              collate_fn=collate_fn,
-                             pin_memory=(device != 'cpu'))
+                             pin_memory=(str(device) != 'cpu'))
 
     return data_loader
